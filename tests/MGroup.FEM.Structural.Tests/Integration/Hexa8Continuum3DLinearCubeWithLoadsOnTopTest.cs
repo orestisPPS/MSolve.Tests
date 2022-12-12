@@ -29,36 +29,29 @@ namespace MGroup.FEM.Structural.Tests.Integration
 
             private static double[] SolveModel(Model model)
             {
+                var watchDofs = new List<(INode node, IDofType dof)>();
                 var solverFactory = new SkylineSolver.Factory();
+                //var solverFactory = new PcgSolver.Factory();
+             
                 var algebraicModel = solverFactory.BuildAlgebraicModel(model);
                 var solver = solverFactory.BuildSolver(algebraicModel);
                 var problem = new ProblemStructural(model, algebraicModel);
+                
+                var linearAnalyzer = new LinearAnalyzer(algebraicModel, solver, problem);
+                var staticAnalyzer = new StaticAnalyzer(algebraicModel, problem, linearAnalyzer);
+                
+                watchDofs.Add((model.NodesDictionary[10], StructuralDof.TranslationZ));
 
-                var loadControlAnalyzerBuilder = new LoadControlAnalyzer.Builder(algebraicModel, solver, problem, numIncrements: 2)
-                {
-                    ResidualTolerance = 0,
-                    MaxIterationsPerIncrement = 100,
-                    NumIterationsForMatrixRebuild = 1
-                };
 
-                var loadControlAnalyzer = loadControlAnalyzerBuilder.Build();
-                var staticAnalyzer = new StaticAnalyzer(algebraicModel, problem, loadControlAnalyzer);
-
-                var watchDofs = new List<(INode node, IDofType dof)>()
-                {
-                    (model.NodesDictionary[10], StructuralDof.TranslationZ),
-                };
-
-                var log1 = new TotalDisplacementsPerIterationLog(watchDofs, algebraicModel);
-                loadControlAnalyzer.TotalDisplacementsPerIterationLog = log1;
+                linearAnalyzer.LogFactory = new LinearAnalyzerLogFactory(watchDofs, algebraicModel);
 
                 staticAnalyzer.Initialize();
                 staticAnalyzer.Solve();
 
-                var solution = new double[]
-                {
-                    log1.GetTotalDisplacement(10, watchDofs[0].node, watchDofs[0].dof),
-                };
+                
+                DOFSLog log = (DOFSLog)linearAnalyzer.Logs[0];
+                
+                var solution = new double[] { log.DOFValues[watchDofs[0].node, watchDofs[0].dof] };
 
                 return solution;
             }

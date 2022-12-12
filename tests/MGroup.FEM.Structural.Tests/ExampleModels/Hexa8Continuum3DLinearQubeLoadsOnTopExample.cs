@@ -112,7 +112,7 @@ namespace MGroup.FEM.Structural.Tests.ExampleModels
 
 		public static double[] GetExpectedDisplacements()
 		{
-			var solution = new double[] { -0,003441435 };
+			var solution = new double[] { -0.003441435 };
 			return solution;
 		}
 	}
