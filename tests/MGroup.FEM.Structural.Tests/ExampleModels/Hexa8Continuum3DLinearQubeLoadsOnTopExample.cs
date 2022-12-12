@@ -48,7 +48,6 @@ namespace MGroup.FEM.Structural.Tests.ExampleModels
 			model.NodesDictionary[++nodeIndex] = new Node(id: nodeIndex, x: 0.0, y: 1.0, z: 0.0);
 			model.NodesDictionary[++nodeIndex] = new Node(id: nodeIndex, x: 0.0, y: 0.0, z: 0.0);
 			
-			
 			//Assign nodes to elements. Correct ordering is not guaranteed. Reordering needs to be applied
 			var elementNodes = new INode[][]
 			{
@@ -61,10 +60,13 @@ namespace MGroup.FEM.Structural.Tests.ExampleModels
 				new[] { model.NodesDictionary[25], model.NodesDictionary[16], model.NodesDictionary[15], model.NodesDictionary[24], model.NodesDictionary[22], model.NodesDictionary[13], model.NodesDictionary[12], model.NodesDictionary[21] },
 				new[] { model.NodesDictionary[26], model.NodesDictionary[17], model.NodesDictionary[16], model.NodesDictionary[25], model.NodesDictionary[23], model.NodesDictionary[14], model.NodesDictionary[13], model.NodesDictionary[22] },
 			};
-			
+
 			//Apply node reordering
 			var nodeReordering = new GMeshElementLocalNodeOrdering();
-			var rearrangeNodes = elementNodes.Select(x => nodeReordering.ReorderNodes(x, CellType.Hexa8)).ToArray();
+			var rearrangeNodes = elementNodes.Select(x => nodeReordering.ReorderNodes(x, MGroup.MSolve.Discretization.CellType.Hexa8)).ToArray();
+
+			// Create computational subdomains (1 subdomain in most cases)
+			model.SubdomainsDictionary.Add(key: 0, new Subdomain(id: 0));
 			
 			// Create linear elastic isotropic material
 			var E = 1E6; // Young's modulus [Pa]
@@ -76,13 +78,11 @@ namespace MGroup.FEM.Structural.Tests.ExampleModels
 			// create elements
 			for (int i = 0; i < elementNodes.Length; i++)
 			{
-				model.ElementsDictionary[i] = elementFactory.CreateElement(CellType.Hexa8, rearrangeNodes[i]);
+				model.ElementsDictionary[i] = elementFactory.CreateElement(MGroup.MSolve.Discretization.CellType.Hexa8, rearrangeNodes[i]);
 				model.ElementsDictionary[i].ID = i;
 				model.SubdomainsDictionary[0].Elements.Add(model.ElementsDictionary[i]);
 			}
 			
-			// Create computational subdomains (1 subdomain in most cases)
-			model.SubdomainsDictionary.Add(key: 0, new Subdomain(id: 0));
 			
 			//Apply Dirichlet BC u(x,y,0) = 0
 			var dirichlet = new List<INodalDisplacementBoundaryCondition>();
@@ -95,29 +95,25 @@ namespace MGroup.FEM.Structural.Tests.ExampleModels
 			
 			//Apply Neumann BC @ z = 2 (Point Loads)
 			var neumann = new List<INodalLoadBoundaryCondition>();
-			foreach (var node in model.NodesDictionary.Values.Where(node => node.Z >= 1.999999))
-			{
-				switch (node.X - 1)
-				{
-					case <= 1 when node.Y - 1 <= 1:
-						neumann.Add(new NodalLoad(node, StructuralDof.TranslationZ, -1));
-						break;
-					case <= 2 when node.Y - 1 <= 2:
-						neumann.Add(new NodalLoad(node, StructuralDof.TranslationZ, -2));
-						break;
-				}
-			}
+			var nodes = model.NodesDictionary;
+			neumann.Add(new NodalLoad(nodes[20], StructuralDof.TranslationZ, -375E3));
+			neumann.Add(new NodalLoad(nodes[19], StructuralDof.TranslationZ, -750E3));
+			neumann.Add(new NodalLoad(nodes[18], StructuralDof.TranslationZ, -375E3));
+			neumann.Add(new NodalLoad(nodes[11], StructuralDof.TranslationZ, -750E3));
+			neumann.Add(new NodalLoad(nodes[10], StructuralDof.TranslationZ, -1500E3));
+			neumann.Add(new NodalLoad(nodes[9], StructuralDof.TranslationZ, -750E3));
+			neumann.Add(new NodalLoad(nodes[2], StructuralDof.TranslationZ, -375E3));
+			neumann.Add(new NodalLoad(nodes[1], StructuralDof.TranslationZ, -750E3));
+			neumann.Add(new NodalLoad(nodes[0], StructuralDof.TranslationZ, -375E3));
+			
 			model.BoundaryConditions.Add(new StructuralBoundaryConditionSet(dirichlet, neumann));
 			return model;
 		}
 
-		public static IReadOnlyList<double[]> expectedSolution()
+		public static double[] GetExpectedDisplacements()
 		{
-			return new double[][]
-			{
-
-			};
+			var solution = new double[] { -0,003441435 };
+			return solution;
 		}
-
 	}
 }
